@@ -252,6 +252,8 @@ def main(argv: list[str] | None = None) -> int:
         int: Exit code (0 for success, 1 for error)
     """
     try:
+        if sys.platform == "win32":
+            return asyncio.run(run(), loop_factory=asyncio.SelectorEventLoop)
         return asyncio.run(run())
     except KeyboardInterrupt:
         log.info("AniBridge - Application interrupted")

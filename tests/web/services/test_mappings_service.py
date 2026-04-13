@@ -486,6 +486,88 @@ async def test_attach_anilist_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_mappings_with_anilist_attaches_hyakanime_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AniList-enriched listings should surface a derived HyakAnime target."""
+    service = MappingsService()
+
+    class DummyAniListClient:
+        async def batch_get_anime(self, ids: list[int]) -> list[Media]:
+            return [Media(id=ids[0], title=MediaTitle(romaji="Mock"))]
+
+    class DummyState:
+        async def ensure_public_anilist(self) -> DummyAniListClient:
+            return DummyAniListClient()
+
+    async def fake_resolve(media: Media):
+        assert media.id == 1
+        return SimpleNamespace(id=555)
+
+    monkeypatch.setattr(
+        "anibridge.app.web.services.mappings_service.get_app_state",
+        lambda: DummyState(),
+    )
+    monkeypatch.setattr(
+        service._hyakanime_client,
+        "resolve_anilist_media",
+        fake_resolve,
+    )
+
+    with _fresh_tables():
+        _seed_graph()
+        items, total = await service.list_mappings(
+            page=1,
+            per_page=10,
+            q=None,
+            custom_only=False,
+            with_anilist=True,
+        )
+
+    assert total == 2
+    anilist_item = next(item for item in items if item["descriptor"] == "anilist:1")
+    hyakanime_edge = next(
+        edge for edge in anilist_item["edges"] if edge["target_provider"] == "hyakanime"
+    )
+    assert hyakanime_edge["target_entry_id"] == "555"
+    assert hyakanime_edge["derived"] is True
+    assert hyakanime_edge["label"] == "AniList"
+
+
+@pytest.mark.asyncio
+async def test_attach_hyakanime_matches_degrades_when_lookup_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HyakAnime lookup failures should not break AniList-enriched items."""
+    service = MappingsService()
+
+    async def fake_resolve(_media: Media):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        service._hyakanime_client,
+        "resolve_anilist_media",
+        fake_resolve,
+    )
+
+    items = [
+        MappingItem(
+            provider="anilist",
+            entry_id="1",
+            scope=None,
+            edges=[],
+            custom=True,
+            sources=["custom"],
+            anilist_id=1,
+            anilist=Media(id=1, title=MediaTitle(romaji="Mock")),
+        )
+    ]
+
+    enriched = await service._attach_hyakanime_matches(items)
+    assert enriched[0].edges == []
+
+
+@pytest.mark.asyncio
 async def test_list_mappings_with_anilist_degrades_when_metadata_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

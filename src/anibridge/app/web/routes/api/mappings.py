@@ -33,6 +33,8 @@ class MappingEdgeModel(BaseModel):
     source_range: str
     destination_range: str | None = None
     sources: list[str] = Field(default_factory=list)
+    label: str | None = None
+    derived: bool = False
 
 
 class MappingItemModel(BaseModel):

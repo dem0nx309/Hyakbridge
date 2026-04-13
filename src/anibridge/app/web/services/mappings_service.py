@@ -41,6 +41,7 @@ from anibridge.app.web.services.mappings_query_spec import (
     get_query_field_map,
 )
 from anibridge.app.web.state import get_app_state
+from anibridge.providers.list.hyakanime.client import HyakAnimeClient
 
 __all__ = ["MappingsService", "get_mappings_service"]
 
@@ -55,6 +56,8 @@ class EdgeView:
     source_range: str
     destination_range: str | None
     sources: list[str]
+    label: str | None = None
+    derived: bool = False
 
 
 @dataclass(frozen=True)
@@ -106,6 +109,7 @@ class MappingsService:
     def __init__(self) -> None:
         """Initialise mapping service with query specs and upstream URL."""
         self.upstream_url: str | None = get_config().mappings_url
+        self._hyakanime_client = HyakAnimeClient(token="", logger=log)
 
     @staticmethod
     def _fetch_ids(ctx, stmt) -> set[int]:
@@ -756,6 +760,50 @@ class MappingsService:
             replace(item, anilist=by_id.get(item.anilist_id or -1)) for item in items
         ]
 
+    async def _attach_hyakanime_matches(
+        self, items: list[MappingItem]
+    ) -> list[MappingItem]:
+        """Attach derived HyakAnime edges for items that resolve via AniList."""
+        if not items:
+            return items
+
+        async def enrich(item: MappingItem) -> MappingItem:
+            if item.anilist is None:
+                return item
+            if item.provider == "hyakanime":
+                return item
+            if any(edge.target_provider == "hyakanime" for edge in item.edges):
+                return item
+
+            try:
+                anime = await self._hyakanime_client.resolve_anilist_media(item.anilist)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.debug(
+                    "HyakAnime match unavailable for AniList media %s",
+                    item.anilist.id,
+                    exc_info=True,
+                )
+                return item
+
+            if anime is None:
+                return item
+
+            derived_edge = EdgeView(
+                target_provider="hyakanime",
+                target_entry_id=str(anime.id),
+                target_scope=None,
+                source_range="resolved",
+                destination_range=None,
+                sources=[],
+                label="AniList",
+                derived=True,
+            )
+            return replace(item, edges=[*item.edges, derived_edge])
+
+        return list(await asyncio.gather(*(enrich(item) for item in items)))
+
     def _fetch_entries_for_edges(
         self, edges: Iterable[AnimapMapping]
     ) -> dict[int, AnimapEntry]:
@@ -829,7 +877,8 @@ class MappingsService:
             items.append(item)
 
         if with_anilist:
-            return await self._attach_anilist_metadata(items)
+            items = await self._attach_anilist_metadata(items)
+            return await self._attach_hyakanime_matches(items)
         return items
 
     def _filter_custom_entry_ids(self, entry_ids: Iterable[int]) -> set[int]:

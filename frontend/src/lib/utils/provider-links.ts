@@ -8,6 +8,8 @@ export function externalProviderUrl(
     switch (provider) {
         case "anilist":
             return `https://anilist.co/anime/${entryId}`;
+        case "hyakanime":
+            return `https://hyakanime.fr/anime/${entryId}`;
         case "anidb":
             return `https://anidb.net/anime/${entryId}`;
         case "imdb_movie":

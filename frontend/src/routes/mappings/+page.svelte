@@ -162,6 +162,7 @@
         const providers = new SvelteSet<string>();
         for (const item of list) {
             if (item.provider) providers.add(item.provider);
+            if (item.anilist) providers.add("hyakanime");
             for (const edge of item.edges || []) {
                 providers.add(edge.target_provider);
             }

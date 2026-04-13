@@ -24,6 +24,8 @@ export interface MappingEdge {
     source_range: string;
     destination_range?: string | null;
     sources?: string[];
+    label?: string | null;
+    derived?: boolean;
 }
 
 export interface Mapping {
