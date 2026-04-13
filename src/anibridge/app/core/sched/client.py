@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import gc
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -18,6 +17,7 @@ from anibridge.app.core.sched.profile import ProfileScheduler
 from anibridge.app.exceptions import ProfileNotFoundError, SchedulerUnavailableError
 from anibridge.app.utils.cron import format_interval, is_enabled_interval
 from anibridge.app.utils.human import human_duration
+from anibridge.app.utils.memory import release_memory
 
 __all__ = ["SchedulerClient"]
 
@@ -97,7 +97,7 @@ class SchedulerClient:
         if initialize_tasks:
             await asyncio.gather(*initialize_tasks)
 
-        gc.collect()
+        release_memory()
 
         log.info(
             "Application scheduler initialized with %s profile(s)",
@@ -459,7 +459,7 @@ class SchedulerClient:
 
         log.info("Starting database sync (source=%s)", source)
         await self._sync_coordinator.run_maintenance(_sync_and_backup)
-        gc.collect()
+        release_memory()
 
     def _get_next_1am_utc(self, now: datetime) -> datetime:
         """Calculate the next 1:00 AM UTC, handling DST transitions properly.

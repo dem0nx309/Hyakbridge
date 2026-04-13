@@ -1,6 +1,5 @@
 """Bridge Client Module."""
 
-import gc
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -28,6 +27,7 @@ from anibridge.app.exceptions import MediaTypeError
 from anibridge.app.models.db.housekeeping import Housekeeping
 from anibridge.app.models.db.sync_history import SyncOutcome
 from anibridge.app.utils.cron import get_next_interval_seconds
+from anibridge.app.utils.memory import release_memory
 from anibridge.app.utils.terminal import ARROW
 
 __all__ = ["BridgeClient"]
@@ -416,7 +416,7 @@ class BridgeClient:
 
             await movie_sync.clear_cache()
             await show_sync.clear_cache()
-            gc.collect()
+            release_memory()
 
     async def parse_webhook(
         self, request: Request

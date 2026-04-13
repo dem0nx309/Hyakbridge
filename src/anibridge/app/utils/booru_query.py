@@ -441,12 +441,24 @@ def collect_key_terms(node: Node) -> list[KeyTerm]:
     return out
 
 
+def _has_not_node(node: Node | object) -> bool:
+    """Return True if the AST contains any Not nodes."""
+    if isinstance(node, Not):
+        return True
+    if isinstance(node, (And, Or)):
+        return any(_has_not_node(child) for child in node.children)
+    if isinstance(node, (list, pp.ParseResults)):
+        return any(_has_not_node(child) for child in node)
+    return False
+
+
 def evaluate(
     node: Node,
     *,
     db_resolver: DbResolver,
     anilist_resolver: AniListResolver,
     universe_ids: set[int] | None = None,
+    universe_factory: Callable[[], set[int]] | None = None,
 ) -> EvalResult:
     """Evaluate AST into a set of AniList IDs with optional ordering hint.
 
@@ -458,6 +470,9 @@ def evaluate(
         universe_ids (set[int] | None): Optional set of AniList IDs to use as
             universe for NOT operations. If None, universe is derived from
             all IDs seen in positive terms.
+        universe_factory (Callable[[], set[int]] | None): Lazy factory for the
+            universe set. Called at most once, only when the query contains a
+            NOT node and *universe_ids* was not supplied.
 
     Returns:
         EvalResult: Evaluation result containing:
@@ -468,7 +483,14 @@ def evaluate(
     """
     used_bare = False
     order_hint: dict[int, int] = {}
-    universe: set[int] = set(universe_ids or set())
+
+    # Resolve universe lazily (only if the query has a NOT term).
+    if universe_ids is not None:
+        universe: set[int] = set(universe_ids)
+    elif universe_factory is not None and _has_not_node(node):
+        universe = universe_factory()
+    else:
+        universe = set()
 
     def _coerce(n_any) -> Node | Any:
         """Unwrap pyparsing Group/ParseResults that contain a single Node.
@@ -509,7 +531,7 @@ def evaluate(
         if isinstance(n, Not):
             # Local complement relative to the universe
             child = eval_node(n.child)
-            return set(universe) - set(child)
+            return universe - child
         if isinstance(n, KeyTerm):
             return set(db_resolver(n))
         if isinstance(n, BareTerm):

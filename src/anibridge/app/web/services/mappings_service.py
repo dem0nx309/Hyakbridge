@@ -947,7 +947,6 @@ class MappingsService:
             bare_cache[term_text] = await self._resolve_bare_term(term_text)
 
         with db() as ctx:
-            universe_ids = self._fetch_ids(ctx, select(AnimapEntry.id))
 
             def db_resolver(term: KeyTerm) -> set[int]:
                 spec = self._FIELD_MAP.get(term.key.lower())
@@ -963,7 +962,7 @@ class MappingsService:
                 node,
                 db_resolver=db_resolver,
                 anilist_resolver=anilist_resolver,
-                universe_ids=universe_ids,
+                universe_factory=lambda: self._fetch_ids(ctx, select(AnimapEntry.id)),
             )
 
         matching_ids: set[int] = set(eval_res.ids)

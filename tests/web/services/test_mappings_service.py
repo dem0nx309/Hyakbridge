@@ -1108,12 +1108,12 @@ async def test_evaluate_query_uses_cached_results_and_custom_filter(
     monkeypatch.setattr(service, "_resolve_db_term", lambda ctx, term: {4})
     monkeypatch.setattr(service, "_filter_custom_entry_ids", lambda ids: {4})
 
-    def fake_evaluate(node_arg, *, db_resolver, anilist_resolver, universe_ids):
+    def fake_evaluate(node_arg, *, db_resolver, anilist_resolver, universe_factory):
         assert node_arg is node
         assert db_resolver(ani_term) == {1, 2}
         assert db_resolver(db_term) == {4}
         assert anilist_resolver("bebop") == [3]
-        assert universe_ids == {1, 2, 3, 4}
+        assert universe_factory() == {1, 2, 3, 4}
         return SimpleNamespace(ids={1, 4}, order_hint={4: 0}, used_bare=True)
 
     monkeypatch.setattr(

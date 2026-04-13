@@ -259,7 +259,8 @@
                 in:fade={{ duration: 150 }}
                 class="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-slate-700/70 bg-slate-900/30 p-6 text-center transition hover:border-slate-500 hover:bg-slate-900/50">
                 <div class="text-sm text-slate-400">
-                    No profiles configured yet. Get started by adding a profile in your
+                    The application is either still initializing or no profiles are
+                    configured yet. Get started by adding a profile in your
                     configuration
                 </div>
             </a>

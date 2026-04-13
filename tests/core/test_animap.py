@@ -1,6 +1,7 @@
 """Tests for the Animap client mapping sync."""
 
 import asyncio
+import copy
 import json
 from hashlib import md5
 from pathlib import Path
@@ -40,7 +41,7 @@ class FakeMappingsClient:
         self._content_hash = md5(
             json.dumps(self.mappings, sort_keys=True).encode("utf-8")
         ).hexdigest()
-        return self.mappings
+        return copy.deepcopy(self.mappings)
 
     def get_content_hash(self) -> str:
         """Return a hash of the mappings."""
@@ -171,7 +172,7 @@ def test_build_edges_handles_invalid_payloads(
     )
 
     assert invalid_count >= 3
-    assert edges == {}
+    assert edges == set()
     assert provenance == {}
 
 
@@ -343,5 +344,5 @@ def test_build_edges_skips_null_destination_ranges(
     )
 
     assert invalid_count == 0
-    assert edges == {}
+    assert edges == set()
     assert provenance == {}

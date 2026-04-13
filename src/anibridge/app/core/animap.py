@@ -1,6 +1,5 @@
 """Animap client for v3 provider-range mappings."""
 
-import gc
 from collections.abc import Sequence
 from dataclasses import dataclass
 from hashlib import md5
@@ -24,6 +23,7 @@ from anibridge.app.config.database import db
 from anibridge.app.core.mappings import MappingsClient
 from anibridge.app.models.db.animap import AnimapEntry, AnimapMapping, AnimapProvenance
 from anibridge.app.models.db.housekeeping import Housekeeping
+from anibridge.app.utils.memory import release_memory
 
 __all__ = [
     "AnimapClient",
@@ -269,17 +269,19 @@ class AnimapClient:
         provenance_by_descriptor: dict[str, list[str]],
     ) -> tuple[
         dict[str, MappingDescriptor],
-        dict[tuple[str, str, str, str | None], AnimapEdge],
+        set[tuple[str, str, str, str | None]],
         dict[tuple[str, str, str, str | None], list[str]],
         int,
     ]:
-        """Convert raw mappings into descriptor pairs and directed edges."""
+        """Convert raw mappings into descriptor pairs and directed edge keys."""
         descriptors: dict[str, MappingDescriptor] = {}
-        edges: dict[tuple[str, str, str, str | None], AnimapEdge] = {}
+        edge_keys: set[tuple[str, str, str, str | None]] = set()
         provenance: dict[tuple[str, str, str, str | None], list[str]] = {}
         invalid_count = 0
 
-        for raw_source, targets in mappings.items():
+        # Pop items to release inner dicts as they are processed.
+        while mappings:
+            raw_source, targets = mappings.popitem()
             try:
                 source_desc = parse_mapping_descriptor(raw_source)
             except ValueError:
@@ -290,7 +292,8 @@ class AnimapClient:
                 invalid_count += 1
                 continue
 
-            descriptors[descriptor_key(source_desc)] = source_desc
+            src_dkey = descriptor_key(source_desc)
+            descriptors[src_dkey] = source_desc
 
             if not isinstance(targets, dict):
                 log.warning(
@@ -299,6 +302,8 @@ class AnimapClient:
                 )
                 invalid_count += 1
                 continue
+
+            src_prov = provenance_by_descriptor.get(raw_source, [])
 
             for raw_target, ranges in targets.items():
                 try:
@@ -312,7 +317,8 @@ class AnimapClient:
                     invalid_count += 1
                     continue
 
-                descriptors[descriptor_key(target_desc)] = target_desc
+                dst_dkey = descriptor_key(target_desc)
+                descriptors[dst_dkey] = target_desc
 
                 if ranges is None:
                     continue
@@ -349,35 +355,26 @@ class AnimapClient:
                         invalid_count += 1
                         continue
 
-                    key = (
-                        descriptor_key(source_desc),
-                        descriptor_key(target_desc),
-                        source_range,
-                        destination_range,
-                    )
-                    if key not in edges:
-                        edges[key] = AnimapEdge(
-                            source=source_desc,
-                            destination=target_desc,
-                            source_range=source_range,
-                            destination_range=destination_range,
-                        )
-                    provenance.setdefault(key, []).extend(
-                        provenance_by_descriptor.get(raw_source, [])
-                    )
+                    key = (src_dkey, dst_dkey, source_range, destination_range)
+                    edge_keys.add(key)
+                    if src_prov:
+                        prov_list = provenance.get(key)
+                        if prov_list is None:
+                            provenance[key] = list(src_prov)
+                        else:
+                            prov_list.extend(src_prov)
 
         # Deduplicate provenance lists while preserving order
         for key, values in provenance.items():
             seen: set[str] = set()
             deduped: list[str] = []
             for value in values:
-                if value in seen:
-                    continue
-                seen.add(value)
-                deduped.append(value)
+                if value not in seen:
+                    seen.add(value)
+                    deduped.append(value)
             provenance[key] = deduped
 
-        return descriptors, edges, provenance, invalid_count
+        return descriptors, edge_keys, provenance, invalid_count
 
     async def sync_db(self) -> None:
         """Synchronize the local database with the upstream mappings."""
@@ -406,10 +403,10 @@ class AnimapClient:
                 del mappings, provenance_by_descriptor
                 self.mappings_client.clear_cache()
                 await self.mappings_client.close()
-                gc.collect()
+                release_memory()
                 return
 
-        descriptors, edges, provenance, invalid_count = self._build_edges(
+        descriptors, edge_keys, provenance, invalid_count = self._build_edges(
             mappings, provenance_by_descriptor
         )
         del mappings, provenance_by_descriptor
@@ -417,7 +414,7 @@ class AnimapClient:
         log.debug(
             "Parsed mappings into %s descriptors, %s edges",
             len(descriptors),
-            len(edges),
+            len(edge_keys),
         )
         if invalid_count:
             log.warning(
@@ -502,7 +499,7 @@ class AnimapClient:
             # descriptor-keyed dicts immediately afterwards.
             edge_id_keys: set[tuple[int, int, str, str | None]] = set()
             provenance_by_id_key: dict[tuple[int, int, str, str | None], list[str]] = {}
-            for key in edges:
+            for key in edge_keys:
                 src_key, dst_key, source_range, destination_range = key
                 src_entry_id = existing_entries.get(src_key)
                 dst_entry_id = existing_entries.get(dst_key)
@@ -512,7 +509,7 @@ class AnimapClient:
                 edge_id_keys.add(id_key)
                 provenance_by_id_key[id_key] = provenance.get(key, [])
 
-            del edges, provenance, existing_entries
+            del edge_keys, provenance, existing_entries
 
             existing_mappings: dict[tuple[int, int, str, str | None], int] = {
                 (
@@ -657,4 +654,4 @@ class AnimapClient:
 
         self.mappings_client.clear_cache()
         await self.mappings_client.close()
-        gc.collect()
+        release_memory()

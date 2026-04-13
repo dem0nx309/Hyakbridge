@@ -54,6 +54,7 @@ LABEL maintainer="Elias Benbourenane <eliasbenbourenane@gmail.com>" \
     org.opencontainers.image.licenses="MIT"
 
 ENV PATH=/opt/venv/bin:$PATH \
+    PYTHONMALLOC=malloc \
     PYTHONUNBUFFERED=1 \
     PYTHON_JIT=1 \
     PUID=1000 \
