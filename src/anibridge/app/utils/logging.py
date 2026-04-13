@@ -125,6 +125,29 @@ class CleanFormatter(logging.Formatter):
         return super().format(record)
 
 
+class SafeStreamHandler(logging.StreamHandler):
+    """Stream handler that degrades gracefully on Windows encoding mismatches."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Write the log record, escaping only characters the stream rejects."""
+        try:
+            message = self.format(record) + self.terminator
+            stream = self.stream
+            try:
+                stream.write(message)
+            except UnicodeEncodeError:
+                encoding = getattr(stream, "encoding", None) or "utf-8"
+                safe_message = message.encode(
+                    encoding, errors="backslashreplace"
+                ).decode(encoding)
+                stream.write(safe_message)
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:
+            self.handleError(record)
+
+
 class Logger(logging.Logger):
     """Extended Logger class with class name prefixing and additional log levels."""
 
@@ -264,12 +287,13 @@ class Logger(logging.Logger):
                 log_file,
                 maxBytes=10 * 1024 * 1024,  # 10MB
                 backupCount=5,
+                encoding="utf-8",
             )
             file_handler.setFormatter(file_formatter)
             file_handler.setLevel(log_level_literal)
             self.addHandler(file_handler)
 
-        console_handler = logging.StreamHandler()
+        console_handler = SafeStreamHandler()
         console_handler.setFormatter(console_formatter)
         console_handler.setLevel(log_level_literal)
         self.addHandler(console_handler)

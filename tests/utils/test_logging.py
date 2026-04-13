@@ -1,5 +1,6 @@
 """Tests for logging utilities."""
 
+import io
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -164,6 +165,12 @@ def test_logger_setup_creates_file_and_console_handlers(
     handler_types = {type(handler) for handler in logger.handlers}
     assert any(issubclass(htype, RotatingFileHandler) for htype in handler_types)
     assert any(issubclass(htype, logging.StreamHandler) for htype in handler_types)
+    file_handler = next(
+        handler
+        for handler in logger.handlers
+        if isinstance(handler, RotatingFileHandler)
+    )
+    assert file_handler.encoding == "utf-8"
 
     for handler in logger.handlers[:]:
         handler.close()
@@ -189,3 +196,26 @@ def test_logger_setup_handles_color_detection_errors(
     for handler in logger.handlers[:]:
         handler.close()
         logger.removeHandler(handler)
+
+
+def test_safe_stream_handler_escapes_unencodable_characters() -> None:
+    """Console logging should not explode on characters missing from cp1252."""
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, encoding="cp1252", errors="strict")
+    handler = logging_module.SafeStreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+
+    record = logging.LogRecord(
+        name="test",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=10,
+        msg="Shōgun",
+        args=(),
+        exc_info=None,
+    )
+
+    handler.emit(record)
+    stream.flush()
+
+    assert buffer.getvalue().decode("cp1252") == "Sh\\u014dgun\r\n"

@@ -27,6 +27,7 @@ _DEFAULT_LIBRARY_CLASSES_BY_NS: dict[str, str] = {
 }
 _DEFAULT_LIST_CLASSES_BY_NS: dict[str, str] = {
     "anilist": f"{_ROOT_LIST_PACKAGE}.anilist.AnilistListProvider",
+    "hyakanime": f"{_ROOT_LIST_PACKAGE}.hyakanime.HyakAnimeListProvider",
     "mal": f"{_ROOT_LIST_PACKAGE}.mal.MalListProvider",
     "trakt": f"{_ROOT_LIST_PACKAGE}.trakt.TraktListProvider",
 }

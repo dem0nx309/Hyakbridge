@@ -167,3 +167,21 @@ def test_register_classes_rejects_non_class_and_unknown_bases(
 
     with pytest.raises(ProfileConfigError, match="must inherit from"):
         providers_module._register_classes(["pkg.module.Provider"])
+
+
+def test_ensure_default_provider_registers_hyakanime_namespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The HyakAnime namespace should map to the built-in provider class."""
+    captured: list[str] = []
+
+    monkeypatch.setattr(providers_module, "_LOADED_CLASSES", set())
+    monkeypatch.setattr(
+        providers_module,
+        "_register_classes",
+        lambda class_paths: captured.extend(class_paths),
+    )
+
+    providers_module._ensure_default_provider("hyakanime")
+
+    assert captured == ["anibridge.providers.list.hyakanime.HyakAnimeListProvider"]

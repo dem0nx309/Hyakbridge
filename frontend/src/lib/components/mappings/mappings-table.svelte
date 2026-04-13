@@ -244,18 +244,23 @@
                                                 <MappingCard
                                                     entryId={edge.target_entry_id}
                                                     scope={edge.target_scope}
+                                                    label={edge.label ?? ""}
                                                     url={externalProviderUrl(
                                                         edge.target_provider,
                                                         edge.target_entry_id,
                                                         edge.target_scope,
                                                     )}
-                                                    meta={[
-                                                        `${edge.source_range} → ${formatDestinationRange(edge.destination_range)}`,
-                                                    ]}
-                                                    onNavigate={() =>
-                                                        navigate(
-                                                            `source.provider:${edge.target_provider} source.id:${edge.target_entry_id}`,
-                                                        )} />
+                                                    meta={edge.derived
+                                                        ? []
+                                                        : [
+                                                              `${edge.source_range} → ${formatDestinationRange(edge.destination_range)}`,
+                                                          ]}
+                                                    onNavigate={edge.derived
+                                                        ? undefined
+                                                        : () =>
+                                                              navigate(
+                                                                  `source.provider:${edge.target_provider} source.id:${edge.target_entry_id}`,
+                                                              )} />
                                             {/each}
                                         </div>
                                     {:else}
