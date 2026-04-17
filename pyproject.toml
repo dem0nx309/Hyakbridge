@@ -73,8 +73,8 @@ ab-test = "anibridge.scripts.dev:test"
 [project.urls]
 Documentation = "https://anibridge.eliasbenb.dev"
 Homepage = "https://anibridge.eliasbenb.dev"
-Issues = "https://github.com/anibridge/anibridge/issues"
-Source = "https://github.com/anibridge/anibridge"
+Issues = "https://github.com/dem0nx309/Hyakbridge/issues"
+Source = "https://github.com/dem0nx309/Hyakbridge"
 
 [tool.ruff]
 extend-exclude = ["alembic", "packages"]
