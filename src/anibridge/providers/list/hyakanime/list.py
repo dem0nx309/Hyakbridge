@@ -128,7 +128,7 @@ class HyakAnimeListEntry(ListEntry["HyakAnimeListProvider"]):
         self._provider = provider
         self._anime = anime
         self._media = HyakAnimeListMedia(provider, anime)
-        self._progression = progression or HyakAnimeProgression(animeID=anime.id)
+        self._progression = progression or HyakAnimeProgression(anime_id=anime.id)
 
         self._key = str(anime.id)
         self._title = anime.best_title()
@@ -374,9 +374,7 @@ class HyakAnimeListProvider(ListProvider):
             entries.append(HyakAnimeListEntry(self, anime, progression))
         return entries
 
-    async def update_entry(
-        self, key: str, entry: ListEntry[HyakAnimeListProvider]
-    ) -> HyakAnimeListEntry | None:
+    async def update_entry(self, key: str, entry: ListEntry) -> ListEntry | None:
         """Persist status and progress to HyakAnime."""
         current_entry = await self.get_entry(key)
         if current_entry is None:
@@ -391,7 +389,12 @@ class HyakAnimeListProvider(ListProvider):
         ):
             progress = total_units
 
-        status = _LIST_STATUS_TO_HYAKANIME.get(entry.status)
+        entry_status = entry.status
+        status = (
+            _LIST_STATUS_TO_HYAKANIME[entry_status]
+            if entry_status is not None
+            else None
+        )
         if status is None:
             status = current_entry._progression.status
         if status is None:

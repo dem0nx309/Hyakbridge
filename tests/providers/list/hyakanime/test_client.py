@@ -1,8 +1,10 @@
 """Tests for the HyakAnime HTTP client."""
 
 from logging import getLogger
+from typing import cast
 
 import pytest
+from anibridge.utils.types import ProviderLogger
 
 from anibridge.app.models.schemas.anilist import Media, MediaTitle
 from anibridge.providers.list.hyakanime.client import HyakAnimeClient
@@ -14,7 +16,9 @@ async def test_search_anime_url_encodes_slashes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Search queries should be encoded as a single path segment."""
-    client = HyakAnimeClient(token="test-token", logger=getLogger("test"))
+    client = HyakAnimeClient(
+        token="test-token", logger=cast(ProviderLogger, getLogger("test"))
+    )
     requested: list[tuple[str, str]] = []
 
     async def fake_request(method: str, path: str, **_kwargs):
@@ -34,7 +38,9 @@ async def test_resolve_anilist_media_matches_by_anilist_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """AniList media resolution should reuse search results and match by AniList ID."""
-    client = HyakAnimeClient(token="test-token", logger=getLogger("test"))
+    client = HyakAnimeClient(
+        token="test-token", logger=cast(ProviderLogger, getLogger("test"))
+    )
     searched: list[str] = []
 
     async def fake_search_anime(query: str):

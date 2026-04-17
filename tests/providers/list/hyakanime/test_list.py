@@ -1,9 +1,11 @@
 """Tests for the HyakAnime list provider."""
 
 from logging import getLogger
+from typing import cast
 
 import pytest
 from anibridge.list import ListStatus
+from anibridge.utils.types import ProviderLogger
 
 from anibridge.app.models.schemas.anilist import Media, MediaFormat, MediaTitle
 from anibridge.providers.list.hyakanime.list import (
@@ -20,7 +22,7 @@ from anibridge.providers.list.hyakanime.models import (
 
 def _provider() -> HyakAnimeListProvider:
     return HyakAnimeListProvider(
-        logger=getLogger("test"),
+        logger=cast(ProviderLogger, getLogger("test")),
         config={"token": "test-token"},
     )
 
@@ -66,9 +68,9 @@ async def test_resolve_mapping_descriptors_matches_anilist_results_by_id(
             HyakAnimeAnime(
                 id=3022,
                 title="Spy Classroom",
-                idAnilist=146323,
-                idMAL=51252,
-                NbEpisodes=12,
+                id_anilist=146323,
+                id_mal=51252,
+                total_episodes=12,
                 type="TV",
             )
         ]
@@ -94,7 +96,9 @@ async def test_get_entry_returns_placeholder_when_progression_is_missing(
     provider = _provider()
 
     async def fake_get_anime(_anime_id: int) -> HyakAnimeAnime:
-        return HyakAnimeAnime(id=3022, title="Spy Classroom", NbEpisodes=12, type="TV")
+        return HyakAnimeAnime(
+            id=3022, title="Spy Classroom", total_episodes=12, type="TV"
+        )
 
     async def fake_get_progression(_anime_id: int):
         return None
@@ -118,8 +122,8 @@ async def test_update_entry_writes_status_and_progress(
     """V1 updates should send only HyakAnime status and progress."""
     provider = _provider()
     written: list[dict[str, int]] = []
-    anime = HyakAnimeAnime(id=3022, title="Spy Classroom", NbEpisodes=12, type="TV")
-    persisted = HyakAnimeProgression(animeID=3022, progression=0, status=2)
+    anime = HyakAnimeAnime(id=3022, title="Spy Classroom", total_episodes=12, type="TV")
+    persisted = HyakAnimeProgression(anime_id=3022, progression=0, status=2)
 
     async def fake_get_entry(_key: str) -> HyakAnimeListEntry:
         return HyakAnimeListEntry(provider, anime, persisted)
@@ -136,7 +140,7 @@ async def test_update_entry_writes_status_and_progress(
     monkeypatch.setattr(provider, "get_entry", fake_get_entry)
     monkeypatch.setattr(provider._client, "write_progression", fake_write_progression)
 
-    entry = HyakAnimeListEntry(provider, anime, HyakAnimeProgression(animeID=3022))
+    entry = HyakAnimeListEntry(provider, anime, HyakAnimeProgression(anime_id=3022))
     entry.status = ListStatus.COMPLETED
     entry.progress = 8
 
@@ -155,7 +159,7 @@ def test_entry_status_mapping_roundtrip() -> None:
     entry = HyakAnimeListEntry(
         provider,
         anime,
-        HyakAnimeProgression(animeID=3022, progression=3, status=1),
+        HyakAnimeProgression(anime_id=3022, progression=3, status=1),
     )
 
     assert entry.status is ListStatus.CURRENT
