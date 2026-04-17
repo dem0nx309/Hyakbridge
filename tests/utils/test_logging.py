@@ -2,6 +2,7 @@
 
 import io
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 
 import colorama
@@ -218,4 +219,4 @@ def test_safe_stream_handler_escapes_unencodable_characters() -> None:
     handler.emit(record)
     stream.flush()
 
-    assert buffer.getvalue().decode("cp1252") == "Sh\\u014dgun\r\n"
+    assert buffer.getvalue().decode("cp1252") == f"Sh\\u014dgun{os.linesep}"

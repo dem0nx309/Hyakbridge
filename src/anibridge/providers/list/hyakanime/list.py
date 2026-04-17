@@ -44,6 +44,7 @@ _LIST_STATUS_TO_HYAKANIME: dict[ListStatus, int] = {
     ListStatus.REPEATING: 6,
 }
 
+
 def _parse_datetime(value: datetime | str | None) -> datetime | None:
     """Parse a HyakAnime datetime value if one is present."""
     if value is None:

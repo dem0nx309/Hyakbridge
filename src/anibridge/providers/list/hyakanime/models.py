@@ -65,9 +65,7 @@ class HyakAnimeAnime(HyakAnimeBaseModel):
         if not isinstance(value, list):
             return []
         return [
-            item.strip()
-            for item in value
-            if isinstance(item, str) and item.strip()
+            item.strip() for item in value if isinstance(item, str) and item.strip()
         ]
 
     def best_title(self) -> str:
